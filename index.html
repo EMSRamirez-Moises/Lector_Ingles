@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lector Inteligente</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Librerías para EPUB y Almacenamiento Local -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+        .epub-container { min-width: 100%; min-height: 100%; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen w-screen flex flex-col">
+
+    <script type="module">
+        // ==========================================
+        // 1. TUS CLAVES PERSONALES (Cámbialas aquí)
+        // ==========================================
+        const GOOGLE_TRANSLATE_API_KEY = "PEGA_AQUI_TU_API_KEY_DE_TRANSLATE";
+        const GOOGLE_SHEETS_WEB_APP_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT";
+
+        // ==========================================
+        // 2. CONEXIÓN A FIREBASE (No tocar)
+        // ==========================================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDqvFfPtISqPlmOcyrf8ryVj1gOKjJXmX8",
+            authDomain: "lector-ingles-app-88498.firebaseapp.com",
+            projectId: "lector-ingles-app-88498",
+            storageBucket: "lector-ingles-app-88498.firebasestorage.app",
+            messagingSenderId: "979132613329",
+            appId: "1:979132613329:web:b3784e2be1ed203313fbf0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // ==========================================
+        // 3. VARIABLES Y ELEMENTOS DE LA PANTALLA
+        // ==========================================
+        let currentBookId = null;
+        let book = null;
+        let rendition = null;
+        let currentSelection = "";
+        let currentTranslation = "";
+
+        const viewShelf = document.getElementById("view-shelf");
+        const viewReader = document.getElementById("view-reader");
+        const booksGrid = document.getElementById("books-grid");
+        const tooltip = document.getElementById("tooltip");
+        const translationText = document.getElementById("translation-text");
+        const saveBtn = document.getElementById("save-btn");
+
+        // Variables para el NUEVO Modo Guía
+        let guideMode = false;
+        let currentHighlightedElement = null;
+        const guideBtn = document.getElementById("guide-mode-btn");
+
+        // Activar/Desactivar Modo Guía
+        guideBtn.addEventListener("click", () => {
+            guideMode = !guideMode;
+            if (guideMode) {
+                guideBtn.innerText = "Modo Guía: 🟢 ON";
+                guideBtn.classList.replace("bg-gray-200", "bg-blue-600");
+                guideBtn.classList.replace("text-gray-700", "text-white");
+            } else {
+                guideBtn.innerText = "Modo Guía: 🔴 OFF";
+                guideBtn.classList.replace("bg-blue-600", "bg-gray-200");
+                guideBtn.classList.replace("text-white", "text-gray-700");
+                if (currentHighlightedElement) currentHighlightedElement.style.backgroundColor = "transparent";
+                tooltip.classList.add("hidden");
+            }
+        });
+
+        // ==========================================
+        // 4. LÓGICA DEL ESTANTE DE LIBROS
+        // ==========================================
+        onSnapshot(collection(db, "books"), (snapshot) => {
+            booksGrid.innerHTML = "";
+            snapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const id = docSnap.id;
+                
+                const card = document.createElement("div");
+                card.className = "relative bg-white p-5 rounded-xl shadow border border-gray-100 hover:shadow-lg transition flex flex-col items-center text-center";
+                
+                const deleteBtn = document.createElement("button");
+                deleteBtn.className = "absolute top-2 right-2 text-red-400 hover:text-red-600 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow border border-gray-100 font-bold z-10 transition";
+                deleteBtn.innerHTML = "✕";
+                deleteBtn.title = "Eliminar libro";
+                deleteBtn.onclick = async (e) => {
+                    e.stopPropagation(); 
+                    if(confirm(`¿Estás seguro de que deseas eliminar "${data.title}"?`)) {
+                        await localforage.removeItem(id); 
+                        await deleteDoc(doc(db, "books", id)); 
+                    }
+                };
+
+                const content = document.createElement("div");
+                content.className = "w-full cursor-pointer";
+                content.onclick = () => openBook(id, data.currentCfi, data.title);
+                content.innerHTML = `
+                    <div class="w-full h-40 bg-blue-50 rounded-lg mb-4 flex items-center justify-center text-blue-300 text-5xl">📖</div>
+                    <h3 class="font-bold text-gray-700 text-sm w-full truncate" title="${data.title}">${data.title}</h3>
+                    <p class="text-xs text-gray-400 mt-1 w-full truncate">${data.author}</p>
+                `;
+
+                const continueBtn = document.createElement("button");
+                continueBtn.className = "mt-4 bg-blue-600 text-white w-full py-2 rounded font-medium hover:bg-blue-700 transition z-10";
+                continueBtn.innerText = "Continuar Leyendo";
+                continueBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    openBook(id, data.currentCfi, data.title);
+                };
+
+                card.appendChild(deleteBtn);
+                card.appendChild(content);
+                card.appendChild(continueBtn);
+                booksGrid.appendChild(card);
+            });
+        });
+
+        document.getElementById("upload-new-book").addEventListener("change", async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const arrayBuffer = await file.arrayBuffer();
+            const tempBook = ePub(arrayBuffer);
+            await tempBook.ready;
+            const meta = await tempBook.loaded.metadata;
+
+            const bookId = file.name.replace(/[^a-zA-Z0-9]/g, "_"); 
+            const title = meta.title || file.name;
+            const author = meta.creator || "Autor Desconocido";
+
+            await localforage.setItem(bookId, arrayBuffer);
+
+            await setDoc(doc(db, "books", bookId), {
+                title: title,
+                author: author,
+                currentCfi: "", 
+                timestamp: Date.now()
+            });
+            
+            e.target.value = ""; 
+        });
+
+        // ==========================================
+        // 5. LÓGICA DEL LECTOR Y NUEVO SISTEMA DE LECTURA GUIADA
+        // ==========================================
+        async function openBook(id, savedCfi, title) {
+            document.getElementById("reader-title").innerText = title;
+            let arrayBuffer = await localforage.getItem(id);
+
+            if (!arrayBuffer) {
+                alert("Para continuar leyendo en este dispositivo, selecciona el archivo EPUB original.");
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".epub";
+                input.onchange = async (e) => {
+                    if(e.target.files[0]) {
+                        arrayBuffer = await e.target.files[0].arrayBuffer();
+                        await localforage.setItem(id, arrayBuffer);
+                        loadReader(id, arrayBuffer, savedCfi);
+                    }
+                };
+                input.click();
+                return;
+            }
+            loadReader(id, arrayBuffer, savedCfi);
+        }
+
+        function loadReader(id, arrayBuffer, savedCfi) {
+            currentBookId = id;
+            viewShelf.classList.add("hidden");
+            viewReader.classList.remove("hidden");
+            document.getElementById("viewer").innerHTML = "";
+
+            book = ePub(arrayBuffer);
+            rendition = book.renderTo("viewer", {
+                width: "100%", height: "100%", spread: "none", manager: "continuous", flow: "scrolled",
+            });
+
+            rendition.themes.register("custom", {
+                "body": { "background": "#fdf6e3", "color": "#2d3748", "font-family": "Georgia, serif", "font-size": "115%", "line-height": "1.8" }
+            });
+            rendition.themes.select("custom");
+
+            rendition.display(savedCfi || undefined);
+
+            rendition.on("relocated", (location) => {
+                if (currentBookId && location.start) {
+                    setDoc(doc(db, "books", currentBookId), { currentCfi: location.start.cfi }, { merge: true });
+                }
+                // Si cambiamos de página, limpiamos la variable del resaltado
+                currentHighlightedElement = null;
+            });
+
+            // ==========================================
+            // MAGIA: LECTURA GUIADA POR CLIC (SIN ARRASTRAR)
+            // ==========================================
+            rendition.on("click", async (e) => { 
+                const target = e.target || e.srcElement;
+
+                // Si el Modo Guía está ENCENDIDO y hacemos clic en el texto
+                if (guideMode) {
+                    const p = target.tagName.toLowerCase() === 'p' ? target : target.closest('p');
+                    
+                    if (p && p.textContent.trim().length > 0) {
+                        // 1. Quitar color al párrafo anterior
+                        if (currentHighlightedElement) currentHighlightedElement.style.backgroundColor = "transparent";
+                        
+                        // 2. Pintar el párrafo actual (Azul celeste)
+                        p.style.backgroundColor = "rgba(96, 165, 250, 0.4)";
+                        p.style.borderRadius = "4px";
+                        currentHighlightedElement = p;
+
+                        // 3. Traducir instantáneamente
+                        currentSelection = p.textContent.trim();
+                        tooltip.classList.remove("hidden");
+                        translationText.innerText = "Traduciendo...";
+                        await translateText(currentSelection);
+                    }
+                    return; // Salir de la función para no borrar nada
+                }
+
+                // Si el modo guía está APAGADO, un clic en el texto borra la ventana flotante
+                tooltip.classList.add("hidden"); 
+            });
+
+            // Para selección manual tradicional (si quieres sombrear solo una palabra con el modo guía apagado)
+            rendition.on("selected", async function(cfiRange) {
+                if (guideMode) return; // Si el modo guía está encendido, ignorar esto
+                book.getRange(cfiRange).then(async (range) => {
+                    const text = range.toString().trim();
+                    if (text.length > 0) {
+                        currentSelection = text;
+                        tooltip.classList.remove("hidden");
+                        translationText.innerText = "Traduciendo...";
+                        await translateText(text);
+                    }
+                });
+            });
+        }
+
+        // ==========================================
+        // 6. TRADUCCIÓN Y GOOGLE SHEETS
+        // ==========================================
+        async function translateText(text) {
+            try {
+                const res = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${GOOGLE_TRANSLATE_API_KEY}`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ q: text, target: "es" })
+                });
+                const data = await res.json();
+                currentTranslation = data.data.translations[0].translatedText;
+                translationText.innerText = currentTranslation;
+            } catch (e) { translationText.innerText = "Error al traducir."; }
+        }
+
+        saveBtn.addEventListener("click", async () => {
+            saveBtn.innerText = "Guardando..."; saveBtn.disabled = true;
+            try {
+                await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+                    method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ palabra: currentSelection, oracion: "Guardado del lector", traduccion: currentTranslation })
+                });
+                saveBtn.innerText = "¡Guardado!";
+                setTimeout(() => { 
+                    tooltip.classList.add("hidden"); 
+                    saveBtn.innerText = "Guardar Palabra / Frase"; saveBtn.disabled = false;
+                }, 1500);
+            } catch (e) { saveBtn.innerText = "Error"; saveBtn.disabled = false; }
+        });
+
+        document.getElementById("btn-back").addEventListener("click", () => {
+            viewReader.classList.add("hidden"); viewShelf.classList.remove("hidden");
+            if(book) { book.destroy(); book = null; rendition = null; }
+        });
+        document.getElementById("prev").addEventListener("click", () => { if (rendition) rendition.prev(); });
+        document.getElementById("next").addEventListener("click", () => { if (rendition) rendition.next(); });
+
+    </script>
+
+    <!-- ========================================== -->
+    <!-- INTERFAZ GRÁFICA (HTML) -->
+    <!-- ========================================== -->
+    <div id="view-shelf" class="w-full h-full overflow-y-auto p-8 max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+            <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">📚 Mi Estante</h1>
+            <label class="cursor-pointer bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-gray-800 transition font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Añadir Libro (EPUB)
+                <input type="file" id="upload-new-book" accept=".epub" class="hidden" />
+            </label>
+        </div>
+        <div id="books-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6"></div>
+    </div>
+
+    <div id="view-reader" class="hidden w-full h-full bg-[#fdf6e3] flex flex-col">
+        <header class="bg-white/80 backdrop-blur-md shadow-sm px-6 py-3 flex justify-between items-center z-20 sticky top-0">
+            <button id="btn-back" class="text-gray-600 hover:text-blue-600 font-bold flex items-center gap-2 transition">
+                <span>←</span> Estante
+            </button>
+            
+            <!-- NUEVO BOTÓN: MODO GUÍA -->
+            <button id="guide-mode-btn" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold text-sm shadow transition">
+                Modo Guía: 🔴 OFF
+            </button>
+
+            <div class="w-20"></div>
+        </header>
+
+        <div class="flex-grow relative flex justify-center w-full overflow-hidden">
+            <div id="viewer" class="w-full max-w-3xl h-full pb-20 pt-4 px-4"></div>
+        </div>
+
+        <div class="fixed bottom-6 left-0 right-0 flex justify-center gap-4 z-10 pointer-events-none">
+            <button id="prev" class="pointer-events-auto bg-white border border-gray-200 px-8 py-3 rounded-full shadow-lg hover:bg-gray-50 hover:scale-105 font-bold text-gray-700 transition">&lt; Atrás</button>
+            <button id="next" class="pointer-events-auto bg-white border border-gray-200 px-8 py-3 rounded-full shadow-lg hover:bg-gray-50 hover:scale-105 font-bold text-gray-700 transition">Siguiente &gt;</button>
+        </div>
+
+        <div id="tooltip" class="hidden fixed top-24 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white p-4 rounded-xl shadow-2xl z-50 w-[90%] max-w-sm">
+            <div class="text-xs text-gray-400 mb-1 uppercase tracking-wider font-bold">Traducción de Google</div>
+            <div id="translation-text" class="mb-4 font-medium text-lg leading-snug text-gray-100">Cargando...</div>
+            <button id="save-btn" class="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg transition font-bold shadow">
+                Guardar Palabra / Frase
+            </button>
+        </div>
+    </div>
+</body>
+</html>
