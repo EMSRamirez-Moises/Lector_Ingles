@@ -136,25 +136,32 @@
             const file = e.target.files[0];
             if (!file) return;
 
-            const arrayBuffer = await file.arrayBuffer();
-            const tempBook = ePub(arrayBuffer);
-            await tempBook.ready;
-            const meta = await tempBook.loaded.metadata;
+            try {
+                // Leer una copia del archivo para extraer metadatos sin dañar el original
+                const arrayBuffer = await file.arrayBuffer();
+                const tempBook = ePub(arrayBuffer);
+                await tempBook.ready;
+                const meta = await tempBook.loaded.metadata;
 
-            const bookId = file.name.replace(/[^a-zA-Z0-9]/g, "_"); 
-            const title = meta.title || file.name;
-            const author = meta.creator || "Autor Desconocido";
+                const bookId = file.name.replace(/[^a-zA-Z0-9]/g, "_"); 
+                const title = meta.title || file.name;
+                const author = meta.creator || "Autor Desconocido";
 
-            await localforage.setItem(bookId, arrayBuffer);
+                // SOLUCIÓN AL ERROR: Guardamos el archivo original (Blob), NO el ArrayBuffer consumido
+                await localforage.setItem(bookId, file);
 
-            await setDoc(doc(db, "books", bookId), {
-                title: title,
-                author: author,
-                currentCfi: "", 
-                timestamp: Date.now()
-            });
-            
-            e.target.value = ""; 
+                await setDoc(doc(db, "books", bookId), {
+                    title: title,
+                    author: author,
+                    currentCfi: "", 
+                    timestamp: Date.now()
+                });
+                
+                e.target.value = ""; 
+            } catch (error) {
+                alert("Hubo un error al procesar el libro. Asegúrate de que sea un archivo EPUB válido.");
+                console.error(error);
+            }
         });
 
         // ==========================================
@@ -162,33 +169,41 @@
         // ==========================================
         async function openBook(id, savedCfi, title) {
             document.getElementById("reader-title").innerText = title;
-            let arrayBuffer = await localforage.getItem(id);
+            let bookData = await localforage.getItem(id);
 
-            if (!arrayBuffer) {
+            if (!bookData) {
                 alert("Para continuar leyendo en este dispositivo, selecciona el archivo EPUB original.");
                 const input = document.createElement("input");
                 input.type = "file";
                 input.accept = ".epub";
                 input.onchange = async (e) => {
                     if(e.target.files[0]) {
-                        arrayBuffer = await e.target.files[0].arrayBuffer();
-                        await localforage.setItem(id, arrayBuffer);
-                        loadReader(id, arrayBuffer, savedCfi);
+                        bookData = e.target.files[0];
+                        await localforage.setItem(id, bookData);
+                        await loadReader(id, bookData, savedCfi);
                     }
                 };
                 input.click();
                 return;
             }
-            loadReader(id, arrayBuffer, savedCfi);
+            await loadReader(id, bookData, savedCfi);
         }
 
-        function loadReader(id, arrayBuffer, savedCfi) {
+        async function loadReader(id, bookData, savedCfi) {
             currentBookId = id;
             viewShelf.classList.add("hidden");
             viewReader.classList.remove("hidden");
             document.getElementById("viewer").innerHTML = "";
 
-            book = ePub(arrayBuffer);
+            // Asegurarnos de tener el formato correcto de lectura
+            let arrayBufferToRead;
+            if (bookData instanceof Blob) {
+                arrayBufferToRead = await bookData.arrayBuffer();
+            } else {
+                arrayBufferToRead = bookData; 
+            }
+
+            book = ePub(arrayBufferToRead);
             rendition = book.renderTo("viewer", {
                 width: "100%", height: "100%", spread: "none", manager: "continuous", flow: "scrolled",
             });
@@ -198,7 +213,7 @@
             });
             rendition.themes.select("custom");
 
-            rendition.display(savedCfi || undefined);
+            rendition.display(savedCfi ? savedCfi : undefined);
 
             rendition.on("relocated", (location) => {
                 if (currentBookId && location.start) {
