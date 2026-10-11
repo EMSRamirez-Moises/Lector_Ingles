@@ -61,9 +61,29 @@
     #translation-text { line-height: 1.6; font-size: 17px; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
     #save-btn { background: #218649; border-color: #218649; color: white; width: 100%; font-size: 13px; }
     #save-status { font-size: 12px; line-height: 1.5; color: #c7d5e6; margin: 10px 0 0; }
-    #repair-dialog { position: fixed; inset: 0; background: #16213277; display: grid; place-items: center; padding: 24px; z-index: 80; }
+    .modal, #repair-dialog { position: fixed; inset: 0; background: #16213277; display: grid; place-items: center; padding: 24px; z-index: 80; }
     .dialog-card { background: white; padding: 24px; border-radius: 14px; width: min(470px, 100%); }
     .dialog-card h2 { margin-top: 0; font-size: 20px; }
+    .dialog-card { max-height: 85dvh; overflow: auto; }
+    #account-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    #account-email { overflow-wrap: anywhere; color: #637083; font-size: 13px; }
+    #account-row button { font-size: 12px; }
+    #auth-panel { max-width: 430px; margin: 32px auto; padding: 24px; background: white; border: 1px solid #e4e8ee; border-radius: 14px; }
+    #auth-panel h2 { font-size: 21px; margin: 0 0 18px; }
+    #login-form { display: grid; gap: 16px; }
+    #login-form label, .bookmark-label { display: grid; gap: 7px; font-size: 14px; }
+    #login-form input, #bookmark-label { width: 100%; min-width: 0; border: 1px solid #cbd5df; padding: 11px; border-radius: 8px; font-size: 16px; }
+    #login-status { font-size: 13px; color: #94533b; margin: 0; min-height: 20px; }
+    .resolve-progress { margin-top: 8px; font-size: 12px; color: #8b512d; }
+    #bookmarks-open { min-width: 44px; flex: 0 0 44px; padding: 6px; font-size: 22px; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .modal-header h2 { margin-bottom: 0; }
+    .modal-header button { min-height: 44px; min-width: 44px; }
+    .bookmark-label { margin: 16px 0; }
+    #bookmark-list { display: grid; gap: 10px; margin-top: 20px; }
+    .bookmark-row { display: flex; gap: 8px; }
+    .bookmark-row button:first-child { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+    .bookmark-row button:last-child { min-width: 44px; color: #ad2525; }
     .dialog-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
     #guide-help-btn { font-size: 12px; padding: 10px; }
     #guide-panel { width: 340px; flex: 0 0 340px; background: #fffdf7; border-left: 1px solid #e8e3d6; overflow-y: auto; padding: 0 20px 24px; line-height: 1.6; }
@@ -130,10 +150,20 @@
         <input type="file" id="upload-new-book" class="file-input" accept=".epub,application/epub+zip" disabled>
       </label>
     </div>
-    <p class="shelf-note">Tus archivos EPUB se guardan en este navegador. En otro dispositivo tendrás que adjuntar el mismo archivo para leerlo.</p>
+    <p class="shelf-note">Tus libros y tu progreso te acompañan en la computadora y el teléfono. Inicia sesión con la misma cuenta.</p>
+    <div id="account-row" hidden><span id="account-email"></span><button id="account-logout">Cerrar sesión</button><button id="import-legacy" hidden>Traer libros de este navegador</button></div>
+    <section id="auth-panel" aria-labelledby="login-title">
+      <h2 id="login-title">Entra a tu estante</h2>
+      <form id="login-form">
+        <label>Correo<input id="login-email" type="email" autocomplete="username" inputmode="email" required></label>
+        <label>Contraseña<input id="login-password" type="password" autocomplete="current-password" required></label>
+        <button id="login-submit" class="primary" disabled>Iniciar sesión</button>
+        <p id="login-status" role="status"></p>
+      </form>
+    </section>
     <div id="sync-row"><span id="sync-status" role="status">Preparando lector…</span><button id="sync-retry" hidden>Reintentar conexión</button></div>
     <div id="books-grid"></div>
-    <p id="empty-shelf" hidden>Añade tu primer EPUB para empezar a leer.</p>
+    <p id="empty-shelf" hidden>Añade tu primer EPUB para empezar. Se conservará en tu cuenta y se descargará cuando lo abras en otro dispositivo.</p>
   </main>
 
   <section id="view-reader" hidden aria-label="Lector de EPUB">
@@ -178,6 +208,7 @@
     <footer class="reader-footer">
       <button id="prev" disabled>← Atrás</button>
       <span id="location-text" aria-live="polite"></span>
+      <button id="bookmarks-open" title="Guardar y abrir marcadores" aria-label="Guardar y abrir marcadores">☆</button>
       <button id="next" disabled>Siguiente →</button>
     </footer>
     <aside id="tooltip" hidden aria-label="Traducción">
@@ -198,6 +229,22 @@
         <label class="upload-label">Seleccionar EPUB<input id="repair-file" class="file-input" type="file" accept=".epub,application/epub+zip"></label>
         <button id="repair-cancel">Cancelar</button>
       </div>
+    </div>
+  </div>
+  <div id="conflict-dialog" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="conflict-title">
+    <div class="dialog-card">
+      <h2 id="conflict-title">Elige tu progreso</h2><p id="conflict-book"></p>
+      <p>Este dispositivo y la nube guardaron posiciones distintas. Elige desde dónde quieres continuar.</p>
+      <div class="dialog-actions"><button id="conflict-remote" class="primary">Usar posición de la nube</button><button id="conflict-local">Usar este dispositivo</button><button id="conflict-cancel">Ahora no</button></div>
+    </div>
+  </div>
+  <div id="bookmark-dialog" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="bookmark-title">
+    <div class="dialog-card">
+      <div class="modal-header"><h2 id="bookmark-title">Mis marcadores</h2><button id="bookmark-close" aria-label="Cerrar marcadores">×</button></div>
+      <label class="bookmark-label">Nombre opcional<input id="bookmark-label" maxlength="120" placeholder="Por ejemplo: una frase para repasar"></label>
+      <button id="bookmark-add" class="primary">Guardar esta posición</button>
+      <p id="bookmark-empty" class="small">Aún no tienes marcadores en este libro.</p>
+      <div id="bookmark-list"></div>
     </div>
   </div>
   <div id="app-notice" hidden role="status"><span id="notice-text"></span><button id="notice-close" aria-label="Cerrar aviso">×</button></div>
@@ -554,22 +601,16 @@ SOFTWARE.
     // Cloud. Una clave incrustada en HTML siempre es visible para sus usuarios.
     const GOOGLE_TRANSLATE_API_KEY = "AIzaSyAVO8tr0Qz7Xz16tFr4mnQ9O-DNIuRAYQ0";
     const GOOGLE_SHEETS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwP05xF8cvzBloAcK8VjBvuWhqYNwWeGCMeTPbqneQs9vP2V4B-lyah4MiLuVnUWhLU/exec";
-    const firebaseConfig = {
-      apiKey: "AIzaSyDqvFfPtISqPlmOcyrf8ryVj1gOKjJXmX8",
-      authDomain: "lector-ingles-app-88498.firebaseapp.com",
-      projectId: "lector-ingles-app-88498",
-      storageBucket: "lector-ingles-app-88498.firebasestorage.app",
-      messagingSenderId: "979132613329",
-      appId: "1:979132613329:web:b3784e2be1ed203313fbf0"
-    };
+    // Clave publicable para el navegador. La privacidad depende de Auth y las políticas RLS.
+    const SUPABASE_URL = 'https://tgrleooafvsiepakadzo.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nI6GXvzPN2y7TGCaJvN6yQ__5U2kTc5';
     const INDEX_KEY = "lector_inteligente:catalogo:v1";
     const WORDS_KEY = "lector_inteligente:frases:v1";
     const $ = id => document.getElementById(id);
     const catalog = new Map();
     const localIds = new Set();
     const cloudTimers = new Map();
-    const cloudBusy = new Set();
-    let storage, firebase, unsubscribe, startingCloud = false;
+    let storage, startingCloud = false;
     let book = null, rendition = null, currentBookId = null;
     let guideMode = false, activeAnnotation = null;
     let selection = null, translation = "", translationController = null, translationSequence = 0;
@@ -613,7 +654,8 @@ SOFTWARE.
     }
     function persistCatalog() {
       const snapshot = Array.from(catalog.values(), value => ({ ...value }));
-      catalogWrite = catalogWrite.catch(() => {}).then(() => storage.setItem(INDEX_KEY, snapshot));
+      const destination = storage; if (!destination) return Promise.resolve();
+      catalogWrite = catalogWrite.catch(() => {}).then(() => destination.setItem(INDEX_KEY, snapshot));
       return catalogWrite;
     }
     function persistInBackground() {
@@ -637,85 +679,482 @@ SOFTWARE.
         const author = document.createElement("p"); author.className = "book-author"; author.textContent = meta.author;
         content.append(cover, title, author);
         const availability = document.createElement("p"); availability.className = "book-state";
-        availability.textContent = localIds.has(meta.id) ? "EPUB en este navegador" : "Necesita el EPUB original";
+        availability.textContent = meta.remoteConflict ? 'Elige qué progreso conservar' : meta.cloudFile
+          ? (localIds.has(meta.id) ? 'En la nube · descargado' : 'En la nube · se descargará al abrir') : 'Copia local · subida pendiente';
         const resume = document.createElement("button"); resume.className = "book-open primary"; resume.textContent = "Continuar leyendo";
         resume.addEventListener("click", () => openBook(meta.id));
-        card.append(remove, content, availability, resume); fragment.append(card);
+        card.append(remove, content, availability, resume);
+        if (meta.remoteConflict) {
+          const resolve = document.createElement('button'); resolve.className = 'resolve-progress'; resolve.textContent = 'Resolver progreso';
+          resolve.addEventListener('click', () => showConflict(meta.id)); card.append(resolve);
+        }
+        fragment.append(card);
       }
       $("books-grid").replaceChildren(fragment);
       $("empty-shelf").hidden = books.length > 0;
     }
 
-    // La lectura y los controles no dependen de que Firebase se pueda importar.
-    // Se conserva la colección /books y sus campos del código original.
+    // Cada cuenta utiliza su propio almacén local. Ninguna consulta usa claves de administrador.
+    const MAX_EPUB_BYTES = 50000000;
+    const BOOKMARKS_KEY = 'lector_inteligente:marcadores:v1';
+    const BOOK_COLUMNS = 'id,title,author,file_name,file_hash,storage_path,file_size_bytes,current_cfi,created_at,updated_at';
+    const bookmarks = new Map();
+    let supabaseClient, legacyStorage, accountId = null, accountEpoch = 0, accountReady = false;
+    let desiredUserId, accountSwitch = Promise.resolve(), cloudRefresh = null, prefsTimer, bookmarkTimer;
+    let bookmarksWrite = Promise.resolve(), settingsBusy = null, bookmarksBusy = null, conflictTarget = null;
+    const cloudJobs = new Map();
+
+    function scope() { return { uid: accountId, epoch: accountEpoch, store: storage }; }
+    function isCurrent(captured) { return captured.uid === accountId && captured.epoch === accountEpoch && captured.store === storage; }
+    function cloudError(error) {
+      const code = String(error?.code || error?.status || '');
+      if (code === '42501' || /row.level|permission denied/i.test(error?.message || '')) return 'Supabase rechazó el acceso. Revisa las políticas del SQL de configuración.';
+      if (code === '42P01' || code === 'PGRST205') return 'Falta una tabla. Ejecuta el SQL de configuración en este proyecto.';
+      if (/bucket not found/i.test(error?.message || '')) return 'Falta el almacén privado epubs. Ejecuta el SQL de configuración.';
+      if (/quota|limit|size|payload/i.test(error?.message || '')) return 'Revisa el espacio disponible en Supabase y el límite de 50 MB por EPUB.';
+      if (code === '401' || /jwt|token.*expired/i.test(error?.message || '')) return 'La sesión necesita renovarse. Vuelve a iniciar sesión cuando tengas conexión.';
+      return 'No se pudo sincronizar. Se conserva la copia local; vuelve a intentar cuando haya conexión.';
+    }
+    function pendingChanges() {
+      return [...catalog.values()].filter(item => item.dirty || item.deleted).length +
+        [...bookmarks.values()].filter(item => item.dirty || item.deleted).length + (readingPrefs.dirty ? 1 : 0);
+    }
+    function updateCloudStatus() {
+      if (!accountReady || !accountId) return;
+      const conflicts = [...catalog.values()].filter(item => item.remoteConflict).length;
+      if (conflicts) syncStatus('Hay dos posiciones de lectura. Pulsa Resolver progreso en el libro.', true);
+      else if (cloudState === 'error') return;
+      else if (pendingChanges()) syncStatus('Cambios guardados en este dispositivo. Sincronización pendiente.', true);
+      else syncStatus('Estante y progreso sincronizados con tu cuenta.');
+    }
+    async function fetchWithTimeout(input, init = {}) {
+      const controller = new AbortController(), incoming = init.signal;
+      const abort = () => controller.abort();
+      incoming?.addEventListener('abort', abort, { once: true });
+      if (incoming?.aborted) controller.abort();
+      const timer = setTimeout(abort, String(input).includes('/storage/') ? 90000 : 20000);
+      try { return await fetch(input, { ...init, signal: controller.signal }); }
+      finally { clearTimeout(timer); incoming?.removeEventListener('abort', abort); }
+    }
     async function connectCloud() {
       if (startingCloud) return;
+      if (supabaseClient) {
+        if (!accountReady) {
+          const { data, error } = await supabaseClient.auth.getSession();
+          if (error) { showConnectionError(error); return; }
+          desiredUserId = undefined; await applySession(data.session);
+        } else await refreshCloud();
+        return;
+      }
       startingCloud = true;
-      syncStatus("Conectando el estante remoto… Puedes leer tus EPUB locales.");
       try {
-        const [appSDK, fsSDK] = await deadline(Promise.all([
-          import("https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js"),
-          import("https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js")
-        ]), 15000, "Firebase no respondió.");
-        const app = appSDK.getApps().length ? appSDK.getApp() : appSDK.initializeApp(firebaseConfig);
-        firebase = { ...fsSDK, db: fsSDK.getFirestore(app) };
-        if (unsubscribe) unsubscribe();
-        cloudState = "connecting";
-        unsubscribe = firebase.onSnapshot(firebase.collection(firebase.db, "books"), snapshot => {
-          cloudState = "ready";
-          snapshot.forEach(docSnap => {
-            const data = docSnap.data(), previous = catalog.get(docSnap.id);
-            if (previous?.deleted || previous?.dirty) return;
-            catalog.set(docSnap.id, {
-              ...previous, id: docSnap.id, title: String(data.title || "Sin título"),
-              author: String(data.author || "Autor desconocido"), currentCfi: String(data.currentCfi || ""),
-              timestamp: Number(data.timestamp) || previous?.timestamp || 0
-            });
-          });
-          persistInBackground(); renderShelf();
-          syncStatus("Estante conectado. Se sincronizan los datos y el progreso; los EPUB siguen guardados en este navegador.");
-          for (const meta of catalog.values()) if (meta.dirty || meta.deleted) queueCloud(meta.id);
-        }, error => {
-          cloudState = "error";
-          console.error("Estante remoto:", error);
-          syncStatus(error.code === "permission-denied"
-            ? "Firebase rechazó el acceso. Revisa la autenticación y las reglas del proyecto. La lectura local sigue disponible."
-            : "No se pudo leer el estante remoto. La lectura local sigue disponible.", true);
+        await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js', 'supabase');
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+          global: { fetch: fetchWithTimeout }
         });
+        // El callback no espera llamadas de Supabase mientras Auth mantiene su bloqueo.
+        supabaseClient.auth.onAuthStateChange((event, session) => {
+          if (event !== 'INITIAL_SESSION') setTimeout(() => applySession(session).catch(showConnectionError), 0);
+        });
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) throw error;
+        await applySession(data.session);
+        $('login-submit').disabled = false;
+      } catch (error) { showConnectionError(error); }
+      finally { startingCloud = false; }
+    }
+    function showConnectionError(error) {
+      cloudState = 'error'; syncStatus(cloudError(error), true);
+      if (!accountId) { $('auth-panel').hidden = false; $('login-status').textContent = 'No se pudo conectar. Pulsa Reintentar conexión.'; }
+    }
+    function applyPrefs(prefs) {
+      readingPrefs = { speed: 100, mode: 'chunks', follow: true, ...prefs };
+      if (![80,100,120,150,180,220,260,300].includes(readingPrefs.speed)) readingPrefs.speed = 100;
+      if (!['chunks','continuous'].includes(readingPrefs.mode)) readingPrefs.mode = 'chunks';
+      readingPrefs.follow = readingPrefs.follow !== false;
+      $('reading-speed').value = String(readingPrefs.speed);
+      $('reading-mode').value = readingPrefs.mode; $('reading-follow').checked = readingPrefs.follow;
+    }
+    function applySession(session) {
+      const uid = session?.user?.id || null;
+      $('account-email').textContent = session?.user?.email || '';
+      if (desiredUserId === uid) return accountSwitch;
+      desiredUserId = uid;
+      const epoch = ++accountEpoch;
+      accountReady = false;
+      closeReader(); hideRepair(); $('bookmark-dialog').hidden = $('conflict-dialog').hidden = true;
+      guideMode = false; $('guide-mode-btn').setAttribute('aria-pressed', 'false'); $('guide-mode-btn').textContent = 'Modo guía: apagado';
+      $('app-notice').hidden = true; $('upload-new-book').disabled = true;
+      $('account-row').hidden = true; $('import-legacy').hidden = true;
+      $('books-grid').replaceChildren(); $('empty-shelf').hidden = true;
+      for (const timer of cloudTimers.values()) clearTimeout(timer);
+      cloudTimers.clear(); clearTimeout(prefsTimer); clearTimeout(bookmarkTimer);
+      accountSwitch = (async () => {
+        await Promise.allSettled([catalogWrite, phraseWrite, bookmarksWrite]);
+        if (epoch !== accountEpoch) return;
+        accountId = uid; storage = null; catalog.clear(); localIds.clear(); bookmarks.clear();
+        cloudState = 'local'; cloudRefresh = null; conflictTarget = null; settingsBusy = null; bookmarksBusy = null; applyPrefs();
+        $('auth-panel').hidden = !!uid; $('account-row').hidden = !uid;
+        $('login-password').value = ''; $('login-status').textContent = '';
+        if (!uid) { accountReady = true; syncStatus('Inicia sesión para abrir tu estante privado.'); return; }
+        const destination = localforage.createInstance({ name: 'lector_supabase', storeName: 'cuenta_' + uid.replace(/-/g, '') });
+        await destination.ready();
+        const [saved, keys, prefs, marks] = await Promise.all([
+          destination.getItem(INDEX_KEY), destination.keys(), destination.getItem(READING_PREFS_KEY), destination.getItem(BOOKMARKS_KEY)
+        ]);
+        if (epoch !== accountEpoch) return;
+        storage = destination;
+        if (Array.isArray(saved)) for (const item of saved) if (item?.id) catalog.set(item.id, item);
+        for (const key of keys) if (!key.startsWith('lector_inteligente:')) localIds.add(key);
+        if (Array.isArray(marks)) for (const item of marks) if (item?.id) bookmarks.set(item.id, item);
+        applyPrefs(prefs); accountReady = true;
+        $('upload-new-book').disabled = false; renderShelf();
+        syncStatus('Abriendo tu estante. Los libros ya descargados se pueden leer mientras conectamos.');
+        const oldKeys = await legacyStorage.keys();
+        if (epoch !== accountEpoch) return;
+        $('import-legacy').hidden = !oldKeys.some(key => !key.startsWith('lector_inteligente:'));
+        await refreshCloud();
+      })().catch(error => { if (epoch === accountEpoch) showConnectionError(error); });
+      return accountSwitch;
+    }
+    async function login(event) {
+      event.preventDefault();
+      if (!supabaseClient) { await connectCloud(); if (!supabaseClient) return; }
+      $('login-submit').disabled = true; $('login-status').textContent = 'Iniciando sesión…';
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: $('login-email').value.trim(), password: $('login-password').value
+        });
+        if (error) throw error;
+        await applySession(data.session);
       } catch (error) {
-        cloudState = "error";
-        console.error("Conexión del estante:", error);
-        syncStatus("Sin conexión al estante remoto. Puedes añadir y leer EPUB en este navegador.", true);
-      } finally { startingCloud = false; }
+        $('login-status').textContent = /invalid.*credentials/i.test(error.message || '') ? 'Correo o contraseña incorrectos.' :
+          /email.*confirm/i.test(error.message || '') ? 'Confirma este usuario en Supabase antes de entrar.' : 'No se pudo entrar. Revisa tu conexión y vuelve a intentar.';
+      } finally { $('login-submit').disabled = false; }
+    }
+    async function logout() {
+      if (!supabaseClient) return;
+      $('account-logout').disabled = true; pauseReading(); rememberReadingPosition();
+      try {
+        await persistCatalog(); await Promise.allSettled([phraseWrite, bookmarksWrite]);
+        if (navigator.onLine) await flushCloud();
+        const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
+        if (error) throw error;
+        await applySession(null);
+      } catch { notice('No se pudo cerrar la sesión. Revisa la conexión y vuelve a intentar.', 'error', true); }
+      finally { $('account-logout').disabled = false; }
+    }
+    function fromRemote(row, previous = {}) {
+      return { ...previous, id: row.id, title: row.title, author: row.author, fileName: row.file_name,
+        hash: row.file_hash, storagePath: row.storage_path, fileSize: Number(row.file_size_bytes),
+        currentCfi: row.current_cfi || '', timestamp: Date.parse(row.created_at) || previous.timestamp || 0,
+        remoteVersion: row.updated_at, cloudFile: true, dirty: false, deleted: false, remoteConflict: null };
+    }
+    async function remoteBook(id, uid) {
+      const { data, error } = await supabaseClient.from('books').select(BOOK_COLUMNS).eq('user_id', uid).eq('id', id).maybeSingle();
+      if (error) throw error; return data;
     }
     function queueCloud(id) {
       clearTimeout(cloudTimers.get(id));
-      if (!firebase || cloudState !== "ready") return;
-      cloudTimers.set(id, setTimeout(() => { cloudTimers.delete(id); syncBook(id); }, 1100));
+      if (!accountReady || !accountId || !supabaseClient || catalog.get(id)?.remoteConflict) return;
+      cloudTimers.set(id, setTimeout(() => {
+        const captured = scope();
+        cloudTimers.delete(id); syncBook(id).then(() => { if (isCurrent(captured)) updateCloudStatus(); })
+          .catch(error => { if (isCurrent(captured)) showConnectionError(error); });
+      }, 1100));
     }
-    async function syncBook(id) {
-      const meta = catalog.get(id);
-      if (!meta || !firebase || cloudState !== "ready") return;
-      if (cloudBusy.has(id)) { queueCloud(id); return; }
-      cloudBusy.add(id);
-      const captured = { ...meta };
+    function recordConflict(meta, row) {
+      meta.remoteConflict = row; meta.dirty = true;
+      persistInBackground(); renderShelf(); updateCloudStatus();
+    }
+    async function discardRemoteDeleted(id, captured) {
+      if (!isCurrent(captured)) return;
+      if (currentBookId === id) closeReader();
+      catalog.delete(id); localIds.delete(id); await captured.store.removeItem(id);
+      if (!isCurrent(captured)) return;
+      for (const [key, mark] of bookmarks) if (mark.book_id === id) bookmarks.delete(key);
+      await Promise.all([persistCatalog(), persistBookmarks()]); renderShelf();
+    }
+    async function downloadEpub(meta, captured) {
+      const { data, error } = await supabaseClient.storage.from('epubs').download(meta.storagePath);
+      if (error) throw error;
+      if (!isCurrent(captured)) return null;
+      const bytes = await bytesOf(data);
+      if (meta.hash && await hashOf(bytes) !== meta.hash) throw new Error('El EPUB descargado no coincide con el original.');
+      await inspectEpub(bytes, meta.title);
+      if (!isCurrent(captured)) return null;
+      await captured.store.setItem(meta.id, new Blob([bytes], { type: 'application/epub+zip' }));
+      if (!isCurrent(captured)) return null;
+      localIds.add(meta.id); renderShelf(); return bytes;
+    }
+    function syncBook(id) {
+      const captured = scope(), meta = catalog.get(id);
+      if (!meta || !accountReady || !captured.uid || !supabaseClient || meta.remoteConflict) return Promise.resolve();
+      const jobKey = `${captured.epoch}:${id}`;
+      if (cloudJobs.has(jobKey)) return cloudJobs.get(jobKey);
+      const snapshot = { ...meta };
+      const job = (async () => {
+        if (snapshot.deleted) {
+          // Primero se borra el archivo. Si falla, la fila queda pendiente de eliminación.
+          if (snapshot.storagePath) {
+            const { error } = await supabaseClient.storage.from('epubs').remove([snapshot.storagePath]); if (error) throw error;
+          }
+          const { error } = await supabaseClient.from('books').delete().eq('user_id', captured.uid).eq('id', id); if (error) throw error;
+          if (isCurrent(captured) && catalog.get(id)?.deleted) await discardRemoteDeleted(id, captured);
+          return;
+        }
+        let row;
+        if (!snapshot.cloudFile) {
+          row = await remoteBook(id, captured.uid);
+          if (!isCurrent(captured)) return;
+          if (!row) {
+            const blob = await captured.store.getItem(id);
+            if (!blob) throw new Error('No se encuentra el EPUB local para subirlo.');
+            const uploaded = await supabaseClient.storage.from('epubs').upload(snapshot.storagePath, blob, {
+              contentType: 'application/epub+zip', cacheControl: '3600', upsert: true
+            });
+            if (uploaded.error) throw uploaded.error;
+            if (!isCurrent(captured)) return;
+            const inserted = await supabaseClient.from('books').insert({ user_id: captured.uid, id,
+              title: snapshot.title, author: snapshot.author, file_name: snapshot.fileName, file_hash: snapshot.hash,
+              storage_path: snapshot.storagePath, file_size_bytes: snapshot.fileSize, current_cfi: snapshot.currentCfi || ''
+            }).select(BOOK_COLUMNS).single();
+            if (inserted.error && inserted.error.code !== '23505') throw inserted.error;
+            row = inserted.data || await remoteBook(id, captured.uid);
+          }
+          if (!isCurrent(captured) || !row) return;
+          const latest = catalog.get(id); if (!latest || latest.deleted) return;
+          latest.cloudFile = true; latest.remoteVersion = row.updated_at;
+          if (latest.revision === snapshot.revision && (!snapshot.currentCfi || snapshot.currentCfi === row.current_cfi)) {
+            Object.assign(latest, fromRemote(row, latest));
+          } else if (snapshot.currentCfi && snapshot.currentCfi !== row.current_cfi) recordConflict(latest, row);
+          await persistCatalog(); renderShelf(); return;
+        }
+        if (!snapshot.dirty) return;
+        let query = supabaseClient.from('books').update({ current_cfi: snapshot.currentCfi || '' })
+          .eq('user_id', captured.uid).eq('id', id);
+        if (snapshot.remoteVersion) query = query.eq('updated_at', snapshot.remoteVersion);
+        const updated = await query.select(BOOK_COLUMNS).maybeSingle();
+        if (updated.error) throw updated.error;
+        row = updated.data;
+        if (!row) row = await remoteBook(id, captured.uid);
+        if (!isCurrent(captured)) return;
+        if (!row) { await discardRemoteDeleted(id, captured); return; }
+        const latest = catalog.get(id); if (!latest || latest.deleted) return;
+        if (!updated.data && row.current_cfi !== snapshot.currentCfi) { recordConflict(latest, row); return; }
+        latest.remoteVersion = row.updated_at;
+        if (latest.revision === snapshot.revision) latest.dirty = false;
+        await persistCatalog();
+      })().finally(() => {
+        cloudJobs.delete(jobKey);
+        if (isCurrent(captured)) { const latest = catalog.get(id); if (latest && latest.revision !== snapshot.revision && !latest.remoteConflict) queueCloud(id); }
+      });
+      cloudJobs.set(jobKey, job); return job;
+    }
+    async function flushCloud() {
+      if (!accountReady || !accountId || !supabaseClient || !navigator.onLine) return;
+      const captured = scope();
+      for (const item of [...catalog.values()]) if (item.dirty || item.deleted) {
+        const revision = item.revision;
+        await syncBook(item.id);
+        if (!isCurrent(captured)) return;
+        // Una pausa puede haber actualizado el CFI mientras se enviaba otro cambio.
+        const latest = catalog.get(item.id);
+        if (latest?.dirty && !latest.remoteConflict && latest.revision !== revision) await syncBook(item.id);
+      }
+      if (!isCurrent(captured)) return;
+      await syncBookmarks(); await syncSettings();
+    }
+    function refreshCloud() {
+      if (!accountReady || !accountId || !supabaseClient) return Promise.resolve();
+      if (cloudRefresh) return cloudRefresh;
+      const captured = scope();
+      const job = (async () => {
+        if (!navigator.onLine) throw new Error('Sin conexión');
+        cloudState = 'connecting'; await flushCloud();
+        if (!isCurrent(captured)) return;
+        const rows = [];
+        for (let first = 0; ; first += 500) {
+          const { data, error } = await supabaseClient.from('books').select(BOOK_COLUMNS).eq('user_id', captured.uid).order('created_at').range(first, first + 499);
+          if (error) throw error; rows.push(...data); if (data.length < 500) break;
+        }
+        if (!isCurrent(captured)) return;
+        const remoteIds = new Set(rows.map(row => row.id));
+        for (const row of rows) {
+          const previous = catalog.get(row.id);
+          if (previous?.dirty || previous?.deleted) continue;
+          if (currentBookId === row.id && previous?.currentCfi !== row.current_cfi) { recordConflict(previous, row); continue; }
+          catalog.set(row.id, fromRemote(row, previous));
+        }
+        for (const item of [...catalog.values()]) if (item.cloudFile && !item.deleted && !remoteIds.has(item.id)) await discardRemoteDeleted(item.id, captured);
+        await Promise.all([refreshBookmarks(captured), refreshSettings(captured)]);
+        if (!isCurrent(captured)) return;
+        cloudState = 'ready'; await persistCatalog(); renderShelf(); updateCloudStatus();
+      })().catch(error => { if (isCurrent(captured)) showConnectionError(error); }).finally(() => { if (cloudRefresh === job) cloudRefresh = null; });
+      cloudRefresh = job; return job;
+    }
+    async function syncSettings() {
+      if (!readingPrefs.dirty || !accountId || settingsBusy) return settingsBusy;
+      const captured = scope(), prefs = { ...readingPrefs };
+      const job = (async () => {
+        const { error } = await supabaseClient.from('reader_settings').upsert({ user_id: captured.uid,
+          guide_speed: prefs.speed, guide_mode: prefs.mode, follow_reading: prefs.follow
+        }, { onConflict: 'user_id' });
+        if (error) throw error;
+        if (isCurrent(captured) && readingPrefs.revision === prefs.revision) {
+          readingPrefs.dirty = false; await captured.store.setItem(READING_PREFS_KEY, { ...readingPrefs });
+        }
+      })().finally(() => { if (settingsBusy === job) settingsBusy = null; });
+      settingsBusy = job; return job;
+    }
+    async function refreshSettings(captured) {
+      const { data, error } = await supabaseClient.from('reader_settings').select('guide_speed,guide_mode,follow_reading').eq('user_id', captured.uid).maybeSingle();
+      if (error) throw error;
+      if (!isCurrent(captured) || !data || readingPrefs.dirty || currentBookId) return;
+      applyPrefs({ speed: data.guide_speed, mode: data.guide_mode, follow: data.follow_reading });
+      await captured.store.setItem(READING_PREFS_KEY, { ...readingPrefs });
+    }
+    async function importLegacy() {
+      if (!accountReady || !accountId || !legacyStorage) return;
+      const captured = scope(), button = $('import-legacy'); button.disabled = true;
+      let count = 0, unavailable = 0;
       try {
-        const ref = firebase.doc(firebase.db, "books", id);
-        if (captured.deleted) await firebase.deleteDoc(ref);
-        else await firebase.setDoc(ref, {
-          title: captured.title, author: captured.author,
-          currentCfi: captured.currentCfi || "", timestamp: captured.timestamp
-        }, { merge: true });
-        const latest = catalog.get(id);
-        if (latest?.revision === captured.revision) {
-          if (captured.deleted) catalog.delete(id); else latest.dirty = false;
-          persistInBackground();
-        } else if (latest) queueCloud(id);
-      } catch (error) {
-        console.error("Sincronización de libro:", error);
-        syncStatus("El cambio se guardó localmente, pero no pudo sincronizarse. Revisa la conexión o los permisos de Firebase.", true);
-      } finally { cloudBusy.delete(id); }
+        const old = await legacyStorage.getItem(INDEX_KEY), oldCatalog = new Map((Array.isArray(old) ? old : []).map(item => [item.id, item]));
+        for (const key of await legacyStorage.keys()) {
+          if (key.startsWith('lector_inteligente:')) continue;
+          if (!isCurrent(captured)) return;
+          try {
+            const bytes = await bytesOf(await legacyStorage.getItem(key));
+            if (bytes.byteLength > MAX_EPUB_BYTES) { unavailable++; continue; }
+            const metadata = await inspectEpub(bytes), hash = await hashOf(bytes), id = `epub_${hash}`;
+            if (catalog.has(id) && !catalog.get(id).deleted) continue;
+            await captured.store.setItem(id, new Blob([bytes], { type: 'application/epub+zip' }));
+            if (!isCurrent(captured)) return;
+            const previous = oldCatalog.get(key);
+            catalog.set(id, { ...metadata, id, hash, fileName: `${metadata.title}.epub`, fileSize: bytes.byteLength,
+              storagePath: `${captured.uid}/${hash}.epub`, currentCfi: previous?.currentCfi || '',
+              timestamp: previous?.timestamp || Date.now(), dirty: true, revision: 1, cloudFile: false });
+            localIds.add(id); count++; await persistCatalog(); queueCloud(id);
+          } catch { unavailable++; }
+        }
+        if (!isCurrent(captured)) return;
+        renderShelf(); await refreshCloud(); if (!isCurrent(captured)) return;
+        notice(`${count} libro(s) trasladado(s) a tu cuenta.${unavailable ? ` ${unavailable} archivo(s) requieren adjuntar de nuevo el original.` : ''}`);
+        button.hidden = unavailable === 0;
+      } catch (error) { notice(cloudError(error), 'error', true); }
+      finally { button.disabled = false; }
     }
+    function showConflict(id, openAfter = false) {
+      const meta = catalog.get(id); if (!meta?.remoteConflict) return;
+      pauseReading(); conflictTarget = { id, openAfter };
+      $('conflict-book').textContent = meta.title;
+      $('conflict-dialog').hidden = false; $('conflict-remote').focus();
+    }
+    async function resolveConflict(useLocal) {
+      const target = conflictTarget, meta = catalog.get(target?.id); if (!meta?.remoteConflict) return;
+      const remote = meta.remoteConflict;
+      meta.remoteVersion = remote.updated_at; meta.remoteConflict = null;
+      if (useLocal) { meta.dirty = true; meta.revision = (meta.revision || 0) + 1; }
+      else { meta.currentCfi = remote.current_cfi || ''; meta.dirty = false; }
+      conflictTarget = null; $('conflict-dialog').hidden = true;
+      await persistCatalog(); renderShelf();
+      if (useLocal) { await syncBook(meta.id).catch(showConnectionError); updateCloudStatus(); }
+      if (target.openAfter || (!useLocal && currentBookId === meta.id)) { closeReader(); await openBook(meta.id); }
+    }
+    function persistBookmarks() {
+      if (!storage) return Promise.resolve();
+      const destination = storage, saved = [...bookmarks.values()].map(item => ({ ...item }));
+      bookmarksWrite = bookmarksWrite.catch(() => {}).then(() => destination.setItem(BOOKMARKS_KEY, saved));
+      return bookmarksWrite;
+    }
+    async function refreshBookmarks(captured) {
+      const rows = [];
+      for (let first = 0; ; first += 500) {
+        const { data, error } = await supabaseClient.from('bookmarks').select('id,book_id,cfi,label,note,created_at').eq('user_id', captured.uid).order('created_at').range(first, first + 499);
+        if (error) throw error; rows.push(...data); if (data.length < 500) break;
+      }
+      if (!isCurrent(captured)) return;
+      const ids = new Set(rows.map(row => row.id));
+      for (const row of rows) if (!bookmarks.get(row.id)?.dirty) bookmarks.set(row.id, { ...row, dirty: false });
+      for (const [id, mark] of bookmarks) if (!mark.dirty && !ids.has(id)) bookmarks.delete(id);
+      await persistBookmarks(); renderBookmarks();
+    }
+    function syncBookmarks() {
+      if (!accountId || !supabaseClient || bookmarksBusy) return bookmarksBusy;
+      const captured = scope(), pending = [...bookmarks.values()].filter(item => item.dirty).map(item => ({ ...item }));
+      const job = (async () => {
+        for (const mark of pending) {
+          if (!isCurrent(captured)) return;
+          const meta = catalog.get(mark.book_id);
+          if (!meta || meta.deleted) { if (isCurrent(captured)) bookmarks.delete(mark.id); continue; }
+          if (!meta.cloudFile) continue;
+          const result = mark.deleted ? await supabaseClient.from('bookmarks').delete().eq('user_id', captured.uid).eq('id', mark.id) :
+            await supabaseClient.from('bookmarks').upsert({ user_id: captured.uid, id: mark.id,
+              book_id: mark.book_id, cfi: mark.cfi, label: mark.label, note: mark.note || ''
+            }, { onConflict: 'id' });
+          if (result.error) throw result.error;
+          if (!isCurrent(captured)) return;
+          const latest = bookmarks.get(mark.id);
+          if (latest?.revision === mark.revision) { if (mark.deleted) bookmarks.delete(mark.id); else latest.dirty = false; }
+        }
+        if (isCurrent(captured)) { await persistBookmarks(); renderBookmarks(); }
+      })().finally(() => { if (bookmarksBusy === job) bookmarksBusy = null; });
+      bookmarksBusy = job; return job;
+    }
+    function queueBookmarks() {
+      clearTimeout(bookmarkTimer);
+      bookmarkTimer = setTimeout(() => flushCloud().then(updateCloudStatus).catch(showConnectionError), 1100);
+    }
+    function renderBookmarks() {
+      const list = $('bookmark-list'); list.replaceChildren();
+      const items = [...bookmarks.values()].filter(mark => mark.book_id === currentBookId && !mark.deleted).sort((a,b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+      $('bookmark-empty').hidden = items.length > 0;
+      for (const mark of items) {
+        const row = document.createElement('div'); row.className = 'bookmark-row';
+        const go = document.createElement('button'); go.textContent = mark.label || 'Posición guardada'; go.addEventListener('click', () => goToBookmark(mark));
+        const remove = document.createElement('button'); remove.textContent = '×'; remove.setAttribute('aria-label', `Eliminar marcador ${mark.label}`);
+        remove.addEventListener('click', async () => { mark.deleted = mark.dirty = true; mark.revision = (mark.revision || 0) + 1; await persistBookmarks(); renderBookmarks(); queueBookmarks(); });
+        row.append(go, remove); list.append(row);
+      }
+    }
+    async function addBookmark() {
+      if (!currentBookId || !rendition) return;
+      pauseReading(); rememberReadingPosition();
+      const cfi = catalog.get(currentBookId)?.currentCfi || rendition.currentLocation()?.start?.cfi;
+      if (!cfi) return;
+      const label = $('bookmark-label').value.trim().slice(0, 120) || $('reading-current-chunk').textContent.trim().slice(0, 100) || $('location-text').textContent || 'Posición guardada';
+      const id = crypto.randomUUID();
+      bookmarks.set(id, { id, book_id: currentBookId, cfi, label, note: '', created_at: new Date().toISOString(), dirty: true, revision: 1 });
+      await persistBookmarks(); $('bookmark-label').value = ''; renderBookmarks(); queueBookmarks();
+      notice('Marcador guardado en este dispositivo. Se sincronizará con tu cuenta.');
+    }
+    async function goToBookmark(mark) {
+      if (!rendition || mark.book_id !== currentBookId) return;
+      pauseReading(); closeTranslation(); $('bookmark-dialog').hidden = true;
+      const meta = catalog.get(mark.book_id); if (!meta) return;
+      try {
+        closeReader(); meta.currentCfi = mark.cfi; meta.dirty = true; meta.revision = (meta.revision || 0) + 1;
+        await persistCatalog(); queueCloud(meta.id); await openBook(meta.id);
+      }
+      catch { notice('No se pudo abrir esta posición del libro.', 'error'); }
+    }
+    function wireCloudControls() {
+      $('login-form').addEventListener('submit', login);
+      $('account-logout').addEventListener('click', logout);
+      $('import-legacy').addEventListener('click', importLegacy);
+      $('conflict-local').addEventListener('click', () => resolveConflict(true).catch(showConnectionError));
+      $('conflict-remote').addEventListener('click', () => resolveConflict(false).catch(showConnectionError));
+      $('conflict-cancel').addEventListener('click', () => { conflictTarget = null; $('conflict-dialog').hidden = true; });
+      $('bookmarks-open').addEventListener('click', () => { pauseReading(); renderBookmarks(); $('bookmark-dialog').hidden = false; $('bookmark-label').focus(); });
+      $('bookmark-add').addEventListener('click', () => addBookmark().catch(error => notice(error.message, 'error')));
+      $('bookmark-close').addEventListener('click', () => { $('bookmark-dialog').hidden = true; });
+      window.addEventListener('online', () => refreshCloud());
+      window.addEventListener('offline', () => { if (accountId) { cloudState = 'error'; syncStatus('Sin conexión. El progreso se conserva en este dispositivo.', true); } });
+      window.addEventListener('focus', () => { if (!document.hidden) refreshCloud(); });
+      window.addEventListener('pagehide', () => { pauseReading('hidden'); if (storage) { rememberReadingPosition(); persistInBackground(); flushCloud().catch(() => {}); } });
+    }
+
 
     async function bytesOf(value) {
       let bytes;
@@ -749,34 +1188,41 @@ SOFTWARE.
       return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, "0")).join("");
     }
     async function addBook(file) {
-      const input = $("upload-new-book"); input.disabled = true;
+      if (!accountReady || !accountId || !storage) return;
+      const captured = scope(), input = $('upload-new-book'); input.disabled = true;
       try {
-        if (!/\.epub$/i.test(file.name)) throw new Error("Selecciona un archivo con extensión .epub.");
-        notice("Comprobando y guardando el EPUB…", "info", true);
-        const bytes = await bytesOf(file), metadata = await inspectEpub(bytes, file.name), hash = await hashOf(bytes);
-        const legacyId = file.name.replace(/[^a-zA-Z0-9]/g, "_");
-        const legacy = catalog.get(legacyId);
-        const id = legacy && !legacy.deleted && legacy.title === metadata.title && (!legacy.hash || legacy.hash === hash)
-          ? legacyId : `epub_${hash}`;
+        if (!/\.epub$/i.test(file.name)) throw new Error('Selecciona un archivo con extensión .epub.');
+        if (file.size > MAX_EPUB_BYTES) throw new Error('Este EPUB supera los 50 MB permitidos por archivo.');
+        notice('Comprobando y guardando el EPUB…', 'info', true);
+        const bytes = await bytesOf(file), metadata = await inspectEpub(bytes, file.name), hash = await hashOf(bytes), id = `epub_${hash}`;
+        if (!isCurrent(captured)) return;
         const previous = catalog.get(id);
-        await storage.setItem(id, new Blob([bytes], { type: "application/epub+zip" }));
+        if (previous?.deleted || cloudJobs.has(`${captured.epoch}:${id}`)) throw new Error('Hay un cambio pendiente para este libro. Sincroniza el estante antes de añadirlo otra vez.');
+        await captured.store.setItem(id, new Blob([bytes], { type: 'application/epub+zip' }));
+        if (!isCurrent(captured)) return;
         localIds.add(id);
-        catalog.set(id, { ...previous, ...metadata, id, hash, currentCfi: previous?.currentCfi || "",
-          timestamp: previous?.timestamp || Date.now(), dirty: true, deleted: false, revision: (previous?.revision || 0) + 1 });
+        catalog.set(id, { ...previous, ...metadata, id, hash, fileName: file.name, fileSize: bytes.byteLength,
+          storagePath: previous?.storagePath || `${captured.uid}/${hash}.epub`, currentCfi: previous?.currentCfi || '',
+          timestamp: previous?.timestamp || Date.now(), dirty: previous?.cloudFile ? !!previous.dirty : true,
+          deleted: false, cloudFile: !!previous?.cloudFile, revision: (previous?.revision || 0) + 1 });
         await persistCatalog(); renderShelf(); queueCloud(id);
-        notice(`“${metadata.title}” está listo. Pulsa Continuar leyendo.`);
-      } catch (error) { console.error("Importación de EPUB:", error); notice(error.message || "No se pudo añadir el EPUB.", "error", true); }
-      finally { input.value = ""; input.disabled = false; }
+        notice(`“${metadata.title}” está listo para leer. Su subida a la nube se realiza en segundo plano.`);
+        updateCloudStatus();
+      } catch (error) { notice(error.message || 'No se pudo añadir el EPUB.', 'error', true); }
+      finally { input.value = ''; input.disabled = !accountReady || !accountId; }
     }
     async function deleteBook(id) {
       const meta = catalog.get(id);
-      if (!meta || !confirm(`¿Eliminar “${meta.title}” del estante y de este navegador?`)) return;
+      if (!meta || !accountReady || !confirm(`¿Eliminar “${meta.title}” de tu cuenta, incluyendo el EPUB, progreso y marcadores?`)) return;
+      const captured = scope();
       try {
-        await storage.removeItem(id); localIds.delete(id);
-        catalog.set(id, { ...meta, deleted: true, dirty: true, revision: (meta.revision || 0) + 1 });
-        await persistCatalog(); renderShelf(); queueCloud(id);
-        notice("Libro eliminado de este navegador. La eliminación del estante remoto se enviará cuando haya conexión.");
-      } catch (error) { notice("No se pudo eliminar el libro: " + error.message, "error"); }
+        // Conservamos la copia local hasta completar la eliminación remota.
+        meta.deleted = meta.dirty = true; meta.remoteConflict = null; meta.revision = (meta.revision || 0) + 1;
+        for (const mark of bookmarks.values()) if (mark.book_id === id) { mark.deleted = mark.dirty = true; mark.revision = (mark.revision || 0) + 1; }
+        await Promise.all([persistCatalog(), persistBookmarks()]);
+        if (!isCurrent(captured)) return;
+        renderShelf(); queueCloud(id); notice('Eliminación pendiente. Se completará al sincronizar tu cuenta.'); updateCloudStatus();
+      } catch (error) { notice('No se pudo guardar la eliminación: ' + error.message, 'error'); }
     }
     function showRepair(meta, reason) {
       repairTarget = { ...meta };
@@ -788,14 +1234,17 @@ SOFTWARE.
     async function attachOriginal(file) {
       const target = repairTarget; if (!target) return;
       const generation = ++contextGeneration;
+      const captured = scope();
       $("repair-file").disabled = true;
       try {
+        if (file.size > MAX_EPUB_BYTES) throw new Error("Este EPUB supera los 50 MB permitidos.");
         const bytes = await bytesOf(file), metadata = await inspectEpub(bytes, file.name), hash = await hashOf(bytes);
         if ((target.hash && target.hash !== hash) || (!target.hash && metadata.title !== target.title)) {
           throw new Error("Este archivo corresponde a otro libro o edición. Selecciona el EPUB original; para otro libro usa Añadir libro.");
         }
-        if (!repairTarget || generation !== contextGeneration) return;
-        await storage.setItem(target.id, new Blob([bytes], { type: "application/epub+zip" }));
+        if (!repairTarget || generation !== contextGeneration || !isCurrent(captured)) return;
+        await captured.store.setItem(target.id, new Blob([bytes], { type: "application/epub+zip" }));
+        if (!isCurrent(captured)) return;
         localIds.add(target.id); catalog.get(target.id).hash = hash;
         await persistCatalog(); renderShelf(); hideRepair();
         await openBook(target.id);
@@ -919,7 +1368,16 @@ SOFTWARE.
       session.scrollCount++;
     }
     function paintReadingState(session, state, force = false) {
-      if (session !== readingSession || !session.contents.document.body?.isConnected) return;
+      if (session !== readingSession) return;
+      if (!session.contents.window.frameElement?.isConnected) {
+        if (!session.rebuilding) {
+          session.rebuilding = true;
+          const wasPlaying = session.engine.isPlaying;
+          session.engine.pause('view-change');
+          setTimeout(() => { if (session === readingSession && guideMode) prepareReading(session.contents, { preserve: true, autoPlay: wasPlaying }); }, 0);
+        }
+        return;
+      }
       const wordChanged = force || state.activeWordId !== session.paintedWord, chunkChanged = force || state.activeChunkId !== session.paintedChunk;
       if (!wordChanged && !chunkChanged) return;
       const word = state.activeWordId === null ? null : session.timeline.words[state.activeWordId];
@@ -988,12 +1446,12 @@ SOFTWARE.
       $('reading-percent').textContent = `${Math.round(state.progress * 100)}% · sección`;
       $('reading-prev-chunk').disabled = state.activeChunkId === 0;
       $('reading-next-chunk').disabled = state.activeChunkId === session.timeline.chunks.length - 1;
+      if (!state.isPlaying) rememberReadingPosition(session);
       paintReadingState(session, state); renderReadingHelp(session, state);
       if (!$('guide-panel').hidden) for (const button of $('guide-result').querySelectorAll('[data-chunk-id]')) button.setAttribute('aria-current', String(Number(button.dataset.chunkId) === state.activeChunkId));
-      if (!state.isPlaying) rememberReadingPosition(session);
     }
     function rememberReadingPosition(session = readingSession) {
-      if (!session || !currentBookId || session !== readingSession) return;
+      if (!session || !currentBookId || session !== readingSession || !session.contents.window.frameElement?.isConnected) return;
       const meta = catalog.get(currentBookId), word = session.timeline.words[session.engine.getState().positionWordId]; if (!meta || !word) return;
       try {
         const range = sourceRange(session, word); range.collapse(true); const cfi = session.contents.cfiFromRange(range);
@@ -1014,7 +1472,21 @@ SOFTWARE.
     }
     async function prepareReading(contents, options = {}) {
       if (!guideMode || !contents || !currentBookId) return;
-      if (readingSession?.contents === contents) { if (options.wordId !== undefined) readingSession.engine.seekToWord(options.wordId); return readingSession; }
+      const initialGeneration = readerSequence;
+      if (!contents.window.frameElement?.isConnected) {
+        const wantedIndex = contents.sectionIndex;
+        for (let attempts = 0; attempts < 60 && initialGeneration === readerSequence; attempts++) {
+          const live = rendition?.getContents().find(item => item.sectionIndex === wantedIndex && item.window.frameElement?.isConnected);
+          if (live) { contents = live; break; }
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        if (initialGeneration !== readerSequence || !contents.window.frameElement?.isConnected) return;
+      }
+      if (readingSession?.contents === contents) {
+        if (options.wordId !== undefined) readingSession.engine.seekToWord(options.wordId);
+        else if (options.cfi) { try { readingSession.engine.seekToWord(sourceWordId(readingSession, contents.range(options.cfi))); } catch {} }
+        return readingSession;
+      }
       const build = ++readingBuild, generation = readerSequence;
       readingBusy = true; $('reading-controls').hidden = false; $('reading-play').disabled = true; $('reading-status').textContent = 'Preparando los bloques de esta sección…';
       try {
@@ -1053,7 +1525,7 @@ SOFTWARE.
       finally { if (build === readingBuild) readingBusy = false; }
     }
     function visibleReadingContents() {
-      const contents = rendition?.getContents() || [], index = rendition?.currentLocation()?.start?.index;
+      const contents = (rendition?.getContents() || []).filter(item => item.window.frameElement?.isConnected), index = rendition?.currentLocation()?.start?.index;
       return contents.find(item => item.sectionIndex === index) || contents[0];
     }
     async function activateReadingGuide() {
@@ -1101,7 +1573,14 @@ SOFTWARE.
       if (range) session.engine.seekToWord(sourceWordId(session, range));
     }
     async function saveReadingPrefs() {
-      if (!storage) return; try { await storage.setItem(READING_PREFS_KEY, readingPrefs); } catch (error) { console.warn('Preferencias de lectura:', error); }
+      if (!storage || !accountReady) return;
+      readingPrefs.dirty = true; readingPrefs.revision = (readingPrefs.revision || 0) + 1;
+      const captured = scope();
+      try {
+        await captured.store.setItem(READING_PREFS_KEY, { ...readingPrefs });
+        if (!isCurrent(captured)) return;
+        clearTimeout(prefsTimer); prefsTimer = setTimeout(() => syncSettings().then(updateCloudStatus).catch(showConnectionError), 1100);
+      } catch (error) { notice('No se pudieron guardar las preferencias.', 'error'); }
     }
     function wireReadingControls() {
       $('reading-play').addEventListener('click', async () => {
@@ -1166,21 +1645,38 @@ SOFTWARE.
       }
     }
     async function openBook(id) {
-      if (opening || !storage) return;
-      const meta = catalog.get(id); if (!meta || meta.deleted) return;
+      if (opening || !storage || !accountReady || !accountId) return;
+      let meta = catalog.get(id); if (!meta || meta.deleted) return;
+      const captured = scope();
       opening = true;
-      let candidate = null, stage = "file", generation = readerSequence;
+      let candidate = null, stage = "file", generation = readerSequence, restoringPosition = true;
       try {
-        const data = await storage.getItem(id);
+        // Se consulta la posición de la nube antes de abrir, incluso con un EPUB ya descargado.
+        await refreshCloud();
+        if (!isCurrent(captured)) return;
+        meta = catalog.get(id); if (!meta || meta.deleted) return;
+        if (meta.remoteConflict) { showConflict(id, true); return; }
+        let data = await captured.store.getItem(id);
         if (generation !== readerSequence) return;
-        if (!data) { showRepair(meta, "El archivo no está en este navegador."); return; }
-        const bytes = await bytesOf(data); await inspectEpub(bytes, meta.title);
+        let bytes;
+        if (data) {
+          try {
+            bytes = await bytesOf(data); await inspectEpub(bytes, meta.title);
+            if (meta.hash && await hashOf(bytes) !== meta.hash) throw new Error('La copia local no coincide con este EPUB.');
+          } catch (error) { if (!meta.cloudFile) throw error; data = null; }
+        }
+        if (!data && meta.cloudFile) {
+          stage = 'download'; notice('Descargando el EPUB de tu cuenta…', 'info', true);
+          bytes = await downloadEpub(meta, captured); if (!bytes) return;
+        } else if (!data) { showRepair(meta, 'El archivo no está en este navegador.'); return; }
         if (generation !== readerSequence) return;
         closeReader(); opening = true;
         generation = readerSequence;
         currentBookId = id; readingResumeCfi = meta.currentCfi || ""; $("reader-title").textContent = meta.title;
         $("view-shelf").hidden = true; $("view-reader").hidden = false; $("reader-loading").hidden = false;
         $("app-notice").hidden = true;
+        // El visor se mide con los controles definitivos, antes de crear sus iframes.
+        if (guideMode) $('reading-controls').hidden = false;
         stage = "render";
         candidate = ePub(); book = candidate;
         // open() sí rechaza si falla la apertura; el constructor con bytes puede
@@ -1200,10 +1696,23 @@ SOFTWARE.
         rendition = current;
         // Todos los hooks y eventos se conectan ANTES de display().
         current.hooks.content.register(contents => installContents(contents, generation));
+        const recoverReadingView = () => {
+          if (generation !== readerSequence || !guideMode || !readingSession || readingBusy) return;
+          if (!readingSession.contents.window.frameElement?.isConnected) prepareReading(readingSession.contents, { preserve: true });
+        };
+        current.on('rendered', recoverReadingView); current.on('removed', recoverReadingView); current.on('displayed', recoverReadingView);
+        current.on('resized', (_size, target) => {
+          // En 0.3.93 un resize temprano vacía los iframes antes de registrar location.
+          // Su restauración interna necesita location.start; en ese caso la hacemos explícita.
+          if (generation === readerSequence && !current.location?.start) {
+            const anchor = target || readingResumeCfi || catalog.get(id)?.currentCfi;
+            current.display(anchor || undefined).catch(error => notice(error.message, 'error'));
+          }
+        });
         current.on("relocated", location => {
           if (generation !== readerSequence || currentBookId !== id || !location.start?.cfi) return;
           const item = catalog.get(id); if (!item) return;
-          if (!guideMode) {
+          if (!guideMode && !restoringPosition) {
             item.currentCfi = location.start.cfi; item.dirty = true; item.revision = (item.revision || 0) + 1;
           }
           clearTimeout(progressTimer);
@@ -1237,6 +1746,7 @@ SOFTWARE.
         }
         if (!restored) await deadline(current.display(), 20000, "No se pudo mostrar el contenido del EPUB.");
         if (generation !== readerSequence) return;
+        restoringPosition = false;
         $("reader-loading").hidden = true;
         const location = current.currentLocation();
         $("prev").disabled = !!location?.atStart; $("next").disabled = !!location?.atEnd;
@@ -1247,7 +1757,9 @@ SOFTWARE.
             const { width, height } = entries[0].contentRect;
             const w = Math.floor(width), h = Math.floor(height);
             if (w > 50 && h > 50 && (w !== lastWidth || h !== lastHeight)) {
-              lastWidth = w; lastHeight = h; current.resize(w, h);
+              lastWidth = w; lastHeight = h;
+              if (guideMode) pauseReading('resize');
+              current.resize(w, h, guideMode ? readingResumeCfi || catalog.get(id)?.currentCfi || undefined : undefined);
             }
           });
           resizeObserver.observe(viewer);
@@ -1260,7 +1772,7 @@ SOFTWARE.
         closeReader();
         notice(`No se pudo abrir “${meta.title}”: ${error.message || "error desconocido"}`, "error", true);
         if (stage === "file") showRepair(meta, "El archivo guardado está incompleto o no se puede leer.");
-      } finally { if (generation === readerSequence) opening = false; }
+      } finally { if (generation === readerSequence || !currentBookId) opening = false; }
     }
     async function navigate(direction) {
       const current = rendition; if (!current || navigating || opening) return;
@@ -1351,7 +1863,7 @@ SOFTWARE.
     $("next").addEventListener("click", () => navigate("next"));
     $("tooltip-close").addEventListener("click", closeTranslation);
     $("save-btn").addEventListener("click", saveSelection);
-    wireReadingControls();
+    wireReadingControls(); wireCloudControls();
     $("guide-mode-btn").addEventListener("click", async () => {
       guideMode = !guideMode; $("guide-mode-btn").setAttribute("aria-pressed", String(guideMode));
       $("guide-mode-btn").textContent = `Modo guía: ${guideMode ? "activado" : "apagado"}`;
@@ -1360,13 +1872,16 @@ SOFTWARE.
     });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") {
+        if (!$("bookmark-dialog").hidden) { $("bookmark-dialog").hidden = true; return; }
+        if (!$("conflict-dialog").hidden) { $("conflict-dialog").hidden = true; conflictTarget = null; return; }
         if (!$("repair-dialog").hidden) { contextGeneration++; hideRepair(); }
         else if (!$("guide-panel").hidden) closeGuide(); else { pauseReading(); closeTranslation(); }
       }
     });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) pauseReading("hidden");
-      if (document.hidden && storage && currentBookId) { persistInBackground(); queueCloud(currentBookId); }
+      if (document.hidden && storage && currentBookId) { persistInBackground(); flushCloud().catch(showConnectionError); }
+      if (!document.hidden) refreshCloud();
     });
     async function boot() {
       try {
@@ -1375,32 +1890,8 @@ SOFTWARE.
           loadScript("https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js", "localforage")
         ]);
         await loadScript("https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js", "ePub");
-        // IndexedDB es el almacenamiento de la instancia original por defecto.
-        // Si falla, se avisa; no se trata un EPUB como una cadena JSON.
-        storage = window.localforage; await storage.ready();
-        const prefs = await storage.getItem(READING_PREFS_KEY);
-        if (prefs && [80,100,120,150,180,220,260,300].includes(prefs.speed)) readingPrefs.speed = prefs.speed;
-        if (prefs?.mode === 'continuous') readingPrefs.mode = 'continuous';
-        if (typeof prefs?.follow === 'boolean') readingPrefs.follow = prefs.follow;
-        $('reading-speed').value = String(readingPrefs.speed); $('reading-mode').value = readingPrefs.mode; $('reading-follow').checked = readingPrefs.follow;
-        const saved = await storage.getItem(INDEX_KEY);
-        if (Array.isArray(saved)) for (const meta of saved) if (meta?.id) catalog.set(meta.id, meta);
-        for (const key of await storage.keys()) {
-          if (key.startsWith("lector_inteligente:")) continue;
-          localIds.add(key);
-          // Recuperar también los EPUB del lector anterior, cuyo catálogo solo
-          // existía en Firebase. Un fallo remoto no debe ocultar archivos locales.
-          if (!catalog.has(key)) {
-            try {
-              const bytes = await bytesOf(await storage.getItem(key)), metadata = await inspectEpub(bytes);
-              catalog.set(key, { ...metadata, id: key, currentCfi: "", timestamp: 0, dirty: false, revision: 0 });
-            } catch { /* Una clave de otra app no es un EPUB. */ }
-          }
-        }
-        await persistCatalog();
-        renderShelf(); $("upload-new-book").disabled = false;
-        syncStatus("Lector listo. Archivos guardados en este navegador.");
-        connectCloud();
+        legacyStorage = window.localforage; await legacyStorage.ready();
+        syncStatus('Conectando tu cuenta…'); await connectCloud();
       } catch (error) {
         console.error("Inicio del lector:", error);
         storage = null; syncStatus("No se pudo iniciar el lector.", true); notice(error.message, "error", true);
